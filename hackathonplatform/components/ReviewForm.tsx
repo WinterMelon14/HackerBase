@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { updateApplicationReview } from "@/actions/applications";
 
 export default function ReviewForm({
@@ -16,7 +15,6 @@ export default function ReviewForm({
   reviewNotes: string | null;
 }) {
   const [isPending, startTransition] = useTransition();
-  const router = useRouter();
   const [currentStatus, setCurrentStatus] = useState(status);
 
   return (
@@ -29,7 +27,7 @@ export default function ReviewForm({
             window.alert(result.error);
             return;
           }
-          router.refresh();
+          setCurrentStatus(result.status ?? currentStatus);
         });
       }}
       className="flex items-center justify-end gap-2"

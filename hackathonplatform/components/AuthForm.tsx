@@ -20,9 +20,8 @@ export default function AuthForm({ mode }: { mode: "signin" | "signup" }) {
         const formData = new FormData(event.currentTarget);
         const email = String(formData.get("email") ?? "").trim();
         const password = String(formData.get("password") ?? "");
-        const supabase = createClient();
         const result = mode === "signin"
-          ? await supabase.auth.signInWithPassword({ email, password })
+          ? await createClient().auth.signInWithPassword({ email, password })
           : await signUp(formData);
         if (result.error) {
           setIsError(true);
@@ -31,22 +30,23 @@ export default function AuthForm({ mode }: { mode: "signin" | "signup" }) {
           setMessage(
             isRateLimited
               ? "Slow down! You are making too many requests."
+              : mode === "signup" && typeof result.error === "string"
+                ? result.error
+              : mode === "signin" && errorMessage.toLowerCase().includes("email not confirmed")
+                ? "Please verify your email address before signing in."
               : mode === "signup"
                 ? "We could not create your account. Please check your details and try again."
                 : "We could not sign you in. Check your email and password and try again.",
           );
           return;
         }
+        if (mode === "signup") {
+          setMessage("success" in result
+            ? result.success ?? "Account created. Check your email to verify your address before signing in."
+            : "Account created. Check your email to verify your address before signing in.");
+          return;
+        }
         if (mode === "signin") {
-          router.push("/portal");
-          router.refresh();
-        } else {
-          const signInResult = await supabase.auth.signInWithPassword({ email, password });
-          if (signInResult.error) {
-            setIsError(true);
-            setMessage("Account created. Sign in to continue.");
-            return;
-          }
           router.push("/portal");
           router.refresh();
         }

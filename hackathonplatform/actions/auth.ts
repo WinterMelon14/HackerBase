@@ -2,7 +2,6 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function signIn(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
@@ -19,6 +18,9 @@ export async function signIn(formData: FormData) {
     if (error.message.toLowerCase().includes("rate limit")) {
       return { error: "Slow down! You are making too many requests." };
     }
+    if (error.message.toLowerCase().includes("email not confirmed")) {
+      return { error: "Please verify your email address before signing in." };
+    }
     return { error: "Unable to sign in with those credentials." };
   }
 
@@ -33,21 +35,37 @@ export async function signUp(formData: FormData) {
     return { error: "Use a valid email and a password with at least 8 characters." };
   }
 
-  const admin = createAdminClient();
-  const { error } = await admin.auth.admin.createUser({
+  const supabase = await createClient();
+  const { data: sessionData } = await supabase.auth.getUser();
+  if (sessionData.user) {
+    return { error: "Sign out before creating another account." };
+  }
+
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    email_confirm: true,
   });
 
   if (error) {
-    if (error.message.toLowerCase().includes("rate limit")) {
+    const normalizedError = error.message.toLowerCase();
+    if (normalizedError.includes("rate limit")) {
       return { error: "Slow down! You are making too many requests." };
+    }
+    if (
+      normalizedError.includes("already registered") ||
+      normalizedError.includes("already exists") ||
+      normalizedError.includes("user already")
+    ) {
+      return { error: "An account already exists with that email address. Sign in instead." };
     }
     return { error: "We could not create your account. Please check your details and try again." };
   }
 
-  return { success: "Account created." };
+  if (!data.user || data.user.identities?.length === 0) {
+    return { error: "An account already exists with that email address. Sign in instead." };
+  }
+
+  return { success: "Account created. Check your email to verify your address before signing in." };
 }
 
 export async function signOut() {

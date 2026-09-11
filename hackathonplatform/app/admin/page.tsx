@@ -12,18 +12,16 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/auth/login");
-  const { data: isOrganizer } = await supabase.rpc("is_organizer");
+  const [{ data: isOrganizer }, { data: isRootOrganizer }] = await Promise.all([
+    supabase.rpc("is_organizer"),
+    supabase.rpc("is_root_organizer"),
+  ]);
   if (!isOrganizer) redirect("/portal");
 
   const [
     { data: applications },
     { data: auditLogs },
-    { count: totalApplications },
-    { count: hackerCount },
-    { count: judgeCount },
-    { count: volunteerCount },
-    { count: mentorCount },
-    { count: pendingReviews },
+    { data: applicationStats },
     { data: totalTeams },
   ] = await Promise.all([
     supabase
@@ -31,14 +29,10 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     .select("id, applicant_type, full_name, email, school, status, score, review_notes, created_at, teams(name)")
     .order("created_at", { ascending: false }).range((page - 1) * pageSize, page * pageSize - 1),
     supabase.from("audit_logs").select("id, actor_name, message, action_type, created_at").order("created_at", { ascending: false }).limit(20),
-    supabase.from("applications").select("*", { count: "exact", head: true }),
-    supabase.from("applications").select("*", { count: "exact", head: true }).eq("applicant_type", "hacker"),
-    supabase.from("applications").select("*", { count: "exact", head: true }).eq("applicant_type", "judge"),
-    supabase.from("applications").select("*", { count: "exact", head: true }).eq("applicant_type", "volunteer"),
-    supabase.from("applications").select("*", { count: "exact", head: true }).eq("applicant_type", "mentor"),
-    supabase.from("applications").select("*", { count: "exact", head: true }).eq("status", "submitted"),
+    supabase.rpc("get_application_stats"),
     supabase.rpc("get_hacker_team_count"),
   ]);
+  const stats = applicationStats?.[0];
 
   const tableApplications = (applications ?? []).map((application) => ({
     ...application,
@@ -71,12 +65,12 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       <p className="mb-3 text-sm font-medium uppercase tracking-wide text-green-700">Organizer Workspace</p>
       <h1 className="text-4xl font-semibold tracking-tight">Application Review</h1>
       <p className="mt-2 text-zinc-600">Review, score, and update applicant decisions from one workspace.</p>
-      <RootOrganizerLink />
+      <RootOrganizerLink isRootOrganizer={Boolean(isRootOrganizer)} />
     </div>
     <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <article className="rounded-xl border border-zinc-200 bg-white p-5">
         <p className="text-sm text-zinc-500">Total Applications</p>
-        <p className="mt-2 text-3xl font-semibold">{totalApplications ?? 0}</p>
+        <p className="mt-2 text-3xl font-semibold">{stats?.total ?? 0}</p>
       </article>
       <article className="rounded-xl border border-zinc-200 bg-white p-5">
         <p className="text-sm text-zinc-500">Total Teams</p>
@@ -84,11 +78,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       </article>
       <article className="rounded-xl border border-zinc-200 bg-white p-5">
         <p className="text-sm text-zinc-500">Hacker/Judge/Volunteer/Mentor</p>
-        <p className="mt-2 text-3xl font-semibold">{hackerCount ?? 0} / {judgeCount ?? 0} / {volunteerCount ?? 0} / {mentorCount ?? 0}</p>
+        <p className="mt-2 text-3xl font-semibold">{stats?.hackers ?? 0} / {stats?.judges ?? 0} / {stats?.volunteers ?? 0} / {stats?.mentors ?? 0}</p>
       </article>
       <article className="rounded-xl border border-zinc-200 bg-white p-5">
         <p className="text-sm text-zinc-500">Pending Reviews</p>
-        <p className="mt-2 text-3xl font-semibold">{pendingReviews ?? 0}</p>
+        <p className="mt-2 text-3xl font-semibold">{stats?.pending ?? 0}</p>
       </article>
     </section>
     <div className="min-w-0">

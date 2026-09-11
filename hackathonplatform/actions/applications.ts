@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { randomInt } from "node:crypto";
@@ -126,6 +127,17 @@ export async function submitApplication(formData: FormData) {
     }
   }
 
+  if (resumePath) {
+    try {
+      const url = new URL(resumePath);
+      if (url.protocol !== "https:") {
+        return { error: "Resume/portfolio links must use https://." };
+      }
+    } catch {
+      return { error: "Enter a valid resume/portfolio link." };
+    }
+  }
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -133,18 +145,21 @@ export async function submitApplication(formData: FormData) {
     return { error: "You must be signed in to apply." };
   }
 
-  const { data: existing } = await supabase
-    .from("applications")
-    .select("id")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const [{ data: existing }, { data: profile }] = await Promise.all([
+    supabase.from("applications").select("id").eq("user_id", user.id).maybeSingle(),
+    supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
+  ]);
 
   if (!user.email) {
     return { error: "Your account does not have an email address." };
   }
+  const userEmail = user.email;
 
   if (existing) {
     return { error: "You can only submit one application." };
+  }
+  if (profile?.role === "organizer") {
+    return { error: "Organizers cannot submit applications." };
   }
 
   let teamId: string | null = null;
@@ -173,7 +188,7 @@ export async function submitApplication(formData: FormData) {
     user_id: user.id,
     applicant_type: type,
     full_name: fullName,
-    email: user.email,
+    email: userEmail,
     school: school || null,
     experience_level: null,
     answers: {
@@ -224,15 +239,11 @@ export async function submitApplication(formData: FormData) {
     };
   }
 
-  try {
-    await sendApplicationReceivedEmail({
-      email: user.email,
+  after(() => sendApplicationReceivedEmail({
+      email: userEmail,
       name: fullName,
       applicationType: type,
-    });
-  } catch (emailError) {
-    console.error("Application received email failed:", emailError);
-  }
+    }).catch((emailError) => console.error("Application received email failed:", emailError)));
 
   async function createUniqueInviteCode(admin: ReturnType<typeof createAdminClient>) {
     const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -272,18 +283,11 @@ export async function updateApplicationReview(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "You must be signed in." };
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
+  const [{ data: profile }, { data: application }] = await Promise.all([
+    supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
+    supabase.from("applications").select("full_name, email, status").eq("id", id).maybeSingle(),
+  ]);
   if (profile?.role !== "organizer") return { error: "Organizer access is required." };
-
-  const { data: application } = await supabase
-    .from("applications")
-    .select("full_name, email, status")
-    .eq("id", id)
-    .maybeSingle();
   if (!application) return { error: "Application not found." };
 
   const { error } = await supabase
@@ -304,14 +308,11 @@ export async function updateApplicationReview(formData: FormData) {
   if (auditError) console.error("Review audit log failed:", auditError);
 
   if (application.status !== "accepted" && status === "accepted") {
-    try {
-      await sendApplicationAcceptedEmail({ email: application.email, name: application.full_name });
-    } catch (emailError) {
-      console.error("Acceptance email failed:", emailError);
-    }
+    after(() => sendApplicationAcceptedEmail({ email: application.email, name: application.full_name })
+      .catch((emailError) => console.error("Acceptance email failed:", emailError)));
   }
   revalidatePath("/admin");
-  return { success: "Review saved." };
+  return { success: "Review saved.", status };
 }
 
 const statusLabels: Record<string, string> = {

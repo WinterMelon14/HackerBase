@@ -99,7 +99,7 @@ export default function ApplicationForm({ type }: { type: ApplicationType }) {
             <option value="">Select one</option><option>Yes</option><option>No</option>
           </select>
         </Field>
-        <Field label="What unique perspective do you bring?">
+        <Field label="What unique perspective would you bring to the judging table? How would you review and look at submissions?">
           <textarea name="uniquePerspective" required maxLength={5000} rows={5} className={inputClass} />
         </Field>
         <Field label="Do you have any conflicts of interest with potential sponsors or participating university teams?">
