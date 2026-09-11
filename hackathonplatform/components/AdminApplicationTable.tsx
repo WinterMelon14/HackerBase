@@ -110,15 +110,15 @@ export default function AdminApplicationTable({ applications }: { applications: 
         <button onClick={cycleStatus} className="cursor-pointer text-center hover:text-green-700">Status{statusFilter && `: ${statusLabels[statusFilter]}`}</button>
       </div>
       {visibleApplications.map((application) => (
-        <div key={`${application.id}-${application.status}`} className={`group grid min-w-[900px] cursor-pointer gap-4 border-b border-zinc-200 px-5 py-4 transition hover:bg-zinc-100 md:grid-cols-[1.4fr_1.1fr_1fr_1fr_180px] md:items-center ${rowStyles[application.status]}`}>
-          <Link href={`/admin/applications/${application.id}`} className="min-w-0">
+        <div key={application.id} className={`group grid min-w-[900px] cursor-pointer gap-4 border-b border-zinc-200 px-5 transition hover:bg-zinc-100 md:grid-cols-[1.4fr_1.1fr_1fr_1fr_180px] ${rowStyles[application.status]}`}>
+          <Link href={`/admin/applications/${application.id}`} className="flex min-w-0 flex-col justify-center py-4">
             <p className="truncate font-semibold">{application.full_name}</p>
             <p className="truncate text-sm text-zinc-500">{application.email}</p>
           </Link>
-          <Link href={`/admin/applications/${application.id}`} className="capitalize text-sm">{application.applicant_type}</Link>
-          <Link href={`/admin/applications/${application.id}`} className="truncate text-sm">{application.school}</Link>
-          <Link href={`/admin/applications/${application.id}`} className="truncate text-sm">{application.team_name ?? "Solo"}</Link>
-          <div className="flex items-center justify-center">
+          <Link href={`/admin/applications/${application.id}`} className="flex items-center capitalize py-4 text-sm">{application.applicant_type}</Link>
+          <Link href={`/admin/applications/${application.id}`} className="flex items-center truncate py-4 text-sm">{application.school}</Link>
+          <Link href={`/admin/applications/${application.id}`} className="flex items-center truncate py-4 text-sm">{application.team_name ?? "Solo"}</Link>
+          <div className="flex items-center justify-center py-4">
             <ReviewForm id={application.id} status={application.status} score={application.score} reviewNotes={application.review_notes} />
           </div>
         </div>

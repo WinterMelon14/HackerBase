@@ -48,7 +48,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         <div className="rounded-xl border border-zinc-200 bg-white p-5">
           <h2 className="text-lg font-semibold">Activity log</h2>
           <p className="mt-1 text-sm text-zinc-500">Recent organizer actions</p>
-          <div className="mt-5 divide-y divide-zinc-200">
+          <div className="mt-5 max-h-[calc(100vh-260px)] overflow-y-auto divide-y divide-zinc-200 pr-2">
             {(auditLogs ?? []).map((log) => (
               <div key={log.id} className="py-4">
                 <p className="text-sm text-zinc-700">{log.message}</p>
@@ -77,7 +77,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         <p className="mt-2 text-3xl font-semibold">{Number(totalTeams ?? 0)}</p>
       </article>
       <article className="rounded-xl border border-zinc-200 bg-white p-5">
-        <p className="text-sm text-zinc-500">Hacker/Judge/Volunteer/Mentor</p>
+        <p className="text-sm text-zinc-500">Hacker / Judge / Volunteer / Mentor</p>
         <p className="mt-2 text-3xl font-semibold">{stats?.hackers ?? 0} / {stats?.judges ?? 0} / {stats?.volunteers ?? 0} / {stats?.mentors ?? 0}</p>
       </article>
       <article className="rounded-xl border border-zinc-200 bg-white p-5">
