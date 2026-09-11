@@ -88,7 +88,7 @@ export default function AdminApplicationTable({ applications }: { applications: 
   }
 
   return (
-    <div>
+    <div className="min-w-0">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <input
           value={search}
@@ -101,8 +101,8 @@ export default function AdminApplicationTable({ applications }: { applications: 
           Export to CSV
         </button>
       </div>
-      <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
-      <div className="hidden grid-cols-[1.4fr_1.1fr_1fr_1fr_180px] gap-4 border-b border-zinc-200 bg-zinc-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500 md:grid">
+      <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
+      <div className="hidden min-w-[900px] grid-cols-[1.4fr_1.1fr_1fr_1fr_180px] gap-4 border-b border-zinc-200 bg-zinc-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500 md:grid">
         <button onClick={() => toggleSort("full_name")} className="cursor-pointer text-left hover:text-green-700">Applicant<Arrow direction={sort?.key === "full_name" ? sort.direction : null} /></button>
         <button onClick={cycleType} className="cursor-pointer text-left hover:text-green-700">Type{typeFilter && `: ${typeFilter}`} </button>
         <button onClick={() => toggleSort("school")} className="cursor-pointer text-left hover:text-green-700">School<Arrow direction={sort?.key === "school" ? sort.direction : null} /></button>
@@ -110,7 +110,7 @@ export default function AdminApplicationTable({ applications }: { applications: 
         <button onClick={cycleStatus} className="cursor-pointer text-center hover:text-green-700">Status{statusFilter && `: ${statusLabels[statusFilter]}`}</button>
       </div>
       {visibleApplications.map((application) => (
-        <div key={`${application.id}-${application.status}`} className={`group grid cursor-pointer gap-4 border-b border-zinc-200 px-5 py-4 transition hover:bg-zinc-100 md:grid-cols-[1.4fr_1.1fr_1fr_1fr_180px] md:items-center ${rowStyles[application.status]}`}>
+        <div key={`${application.id}-${application.status}`} className={`group grid min-w-[900px] cursor-pointer gap-4 border-b border-zinc-200 px-5 py-4 transition hover:bg-zinc-100 md:grid-cols-[1.4fr_1.1fr_1fr_1fr_180px] md:items-center ${rowStyles[application.status]}`}>
           <Link href={`/admin/applications/${application.id}`} className="min-w-0">
             <p className="truncate font-semibold">{application.full_name}</p>
             <p className="truncate text-sm text-zinc-500">{application.email}</p>

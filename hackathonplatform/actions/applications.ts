@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { randomInt } from "node:crypto";
+import { sendApplicationAcceptedEmail, sendApplicationReceivedEmail } from "@/lib/email";
 
 const allowedTypes = new Set(["hacker", "judge", "mentor", "volunteer"]);
 const dietaryOptions = new Set(["vegetarian", "vegan", "gluten-free", "None"]);
@@ -138,7 +139,7 @@ export async function submitApplication(formData: FormData) {
     .eq("user_id", user.id)
     .maybeSingle();
 
-  if (!existing && !user.email) {
+  if (!user.email) {
     return { error: "Your account does not have an email address." };
   }
 
@@ -223,6 +224,16 @@ export async function submitApplication(formData: FormData) {
     };
   }
 
+  try {
+    await sendApplicationReceivedEmail({
+      email: user.email,
+      name: fullName,
+      applicationType: type,
+    });
+  } catch (emailError) {
+    console.error("Application received email failed:", emailError);
+  }
+
   async function createUniqueInviteCode(admin: ReturnType<typeof createAdminClient>) {
     const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -268,12 +279,43 @@ export async function updateApplicationReview(formData: FormData) {
     .maybeSingle();
   if (profile?.role !== "organizer") return { error: "Organizer access is required." };
 
+  const { data: application } = await supabase
+    .from("applications")
+    .select("full_name, email, status")
+    .eq("id", id)
+    .maybeSingle();
+  if (!application) return { error: "Application not found." };
+
   const { error } = await supabase
     .from("applications")
     .update({ status, score, review_notes: notes || null })
     .eq("id", id);
 
   if (error) return { error: "Unable to update this application." };
+  const actorName = user.email ?? "An organizer";
+  const admin = createAdminClient();
+  const { error: auditError } = await admin.from("audit_logs").insert({
+    actor_id: user.id,
+    actor_name: actorName,
+    action_type: "application_review",
+    message: `${actorName} changed ${application.full_name}'s status to ${statusLabels[status]}.`,
+    application_id: id,
+  });
+  if (auditError) console.error("Review audit log failed:", auditError);
+
+  if (application.status !== "accepted" && status === "accepted") {
+    try {
+      await sendApplicationAcceptedEmail({ email: application.email, name: application.full_name });
+    } catch (emailError) {
+      console.error("Acceptance email failed:", emailError);
+    }
+  }
   revalidatePath("/admin");
   return { success: "Review saved." };
 }
+
+const statusLabels: Record<string, string> = {
+  submitted: "Submitted",
+  accepted: "Accepted",
+  rejected: "Rejected",
+};

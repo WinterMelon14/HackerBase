@@ -11,12 +11,13 @@ async function requireRootOrganizer() {
   if (!user) throw new Error("You must be signed in.");
   const { data: isRootOrganizer } = await supabase.rpc("is_root_organizer");
   if (!isRootOrganizer) throw new Error("Root organizer access is required.");
-  return user.id;
+  return user;
 }
 
 export async function setOrganizerByEmail(formData: FormData) {
   try {
-    const currentUserId = await requireRootOrganizer();
+    const currentUser = await requireRootOrganizer();
+    const currentUserId = currentUser.id;
     const email = String(formData.get("email") ?? "").trim().toLowerCase();
     const role = String(formData.get("role") ?? "");
     const confirmDelete = formData.get("confirmDelete") === "true";
@@ -40,6 +41,15 @@ export async function setOrganizerByEmail(formData: FormData) {
 
     const { error } = await admin.from("profiles").update({ role }).eq("id", user.id);
     if (error) return { error: "We could not update this account's organizer role." };
+    const actorName = currentUser.email ?? "A root organizer";
+    const action = role === "organizer" ? "granted organizer access to" : "revoked organizer access from";
+    const { error: auditError } = await admin.from("audit_logs").insert({
+      actor_id: currentUserId,
+      actor_name: actorName,
+      action_type: "organizer_access",
+      message: `${actorName} ${action} ${email}.`,
+    });
+    if (auditError) console.error("Organizer audit log failed:", auditError);
     revalidatePath("/admin");
     revalidatePath("/admin/organizers");
     return { success: role === "organizer" ? "Organizer access granted." : "Organizer access removed." };
